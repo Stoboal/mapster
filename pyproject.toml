@@ -1,0 +1,16 @@
+[project]
+name = "mapster"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "beautifulsoup4>=4.13.3",
+    "django>=5.1.7",
+    "django-cors-headers>=4.7.0",
+    "django-environ>=0.12.0",
+    "djangorestframework>=3.15.2",
+    "geopy>=2.4.1",
+    "psycopg2>=2.9.10",
+    "pytelegrambotapi==4.26.0",
+    "requests>=2.32.3",
+]
