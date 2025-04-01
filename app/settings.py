@@ -26,7 +26,7 @@ DEBUG = env.bool("DEBUG", default=False)
 
 ALLOWED_HOSTS = [env("BACK_URL")]
 
-DOMAIN_URL = env("https://" + "BACK_URL", default="http://localhost:8000")
+DOMAIN_URL = "https://" + env("BACK_URL")
 
 # Application definition
 INSTALLED_APPS = [
