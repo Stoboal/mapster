@@ -1,12 +1,8 @@
 import os
-import environ
 import telebot
 
-from pathlib import Path
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
-
-environ.Env.read_env(Path(__file__).resolve().parent.parent / ".env")
 token = os.environ.get("TELEGRAM_TOKEN")
 url = os.environ.get("FRONT_URL")
 bot = telebot.TeleBot(token)
