@@ -6,7 +6,6 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 environ.Env.read_env(BASE_DIR / ".env")
-env_file = os.path.join(BASE_DIR, ".env")
 env = environ.Env(
     DJANGO_SECRET_KEY=(str, ""),
     TELEGRAM_TOKEN=(str, ""),
@@ -14,7 +13,7 @@ env = environ.Env(
 
     DB_NAME=(str, ""),
     DB_USER=(str, ""),
-    DB_PASSWORD=(str, ""),
+    DB_PASS=(str, ""),
     DB_HOST=(str, ""),
     DB_PORT=(str, ""),
 
@@ -26,12 +25,13 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env.bool("DEBUG", default=False)
 
 ALLOWED_HOSTS = [
-    env("BACK_URL").replace("https://", "").replace("http://", ""),
+    env("BACK_URL", default="").replace("https://", "").replace("http://", ""),
     "127.0.0.1",
     "localhost",
 ]
+ALLOWED_HOSTS = [host for host in ALLOWED_HOSTS if host]
 
-DOMAIN_URL = 'http://localhost:8000'
+DOMAIN_URL = env("BACK_URL", default="http://localhost:8000")
 
 # Application definition
 INSTALLED_APPS = [
@@ -123,12 +123,11 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
-if DEBUG:
-    STATICFILES_DIRS = [BASE_DIR / "static"]
-else:
-    STATIC_ROOT = BASE_DIR / "static"
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'static'
 MEDIA_ROOT = BASE_DIR / 'files'
+STATICFILES_DIRS = [BASE_DIR / "static"]
+
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -234,3 +233,7 @@ CORS_ALLOW_HEADERS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+
+SECURE_SSL_REDIRECT = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG

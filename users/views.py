@@ -26,25 +26,19 @@ def check_telegram_auth(raw_init_data: str) -> bool:
     if not received_hash:
         return False
 
-    data_list_raw = raw_init_data.split('&')
-    data_dict_raw = dict(pair.split('=', 1) for pair in data_list_raw)
-    data_dict_raw.pop('hash', None)
+    data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
 
-    data_check_string = '\n'.join(f"{k}={data_dict_raw[k]}" for k in sorted(data_dict_raw))
-
-    secret_key = hmac.new(b'WebAppData', BOT_TOKEN.encode(), hashlib.sha256).digest()
+    secret_key = hashlib.sha256(BOT_TOKEN.encode()).digest()
     computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(computed_hash, received_hash)
-
-
 
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
 def telegram_auth(request):
     raw_init_data = request.data.get("initData")
-    # if not raw_init_data or not check_telegram_auth(raw_init_data):
-    #     return JsonResponse({"error": "Invalid Telegram signature"}, status=403)
+    if not raw_init_data or not check_telegram_auth(raw_init_data):
+        return JsonResponse({"error": "Invalid Telegram signature"}, status=403)
 
     parsed_data = dict(parse_qsl(raw_init_data))
     user_data_raw = parsed_data.get("user", "{}")
