@@ -24,12 +24,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 
 DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = [
-    env("BACK_URL", default="").replace("https://", "").replace("http://", ""),
-    "127.0.0.1",
-    "localhost",
-]
-ALLOWED_HOSTS = [host for host in ALLOWED_HOSTS if host]
+ALLOWED_HOSTS = [env("BACK_URL")]
 
 DOMAIN_URL = env("BACK_URL", default="http://localhost:8000")
 
