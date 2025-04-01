@@ -26,7 +26,7 @@ DEBUG = env.bool("DEBUG", default=False)
 
 ALLOWED_HOSTS = [env("BACK_URL")]
 
-DOMAIN_URL = env("BACK_URL", default="http://localhost:8000")
+DOMAIN_URL = env("https://" + "BACK_URL", default="http://localhost:8000")
 
 # Application definition
 INSTALLED_APPS = [
@@ -212,8 +212,8 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "https://web.telegram.org",
-    env("BACK_URL"),
-    env("FRONT_URL"),
+    "https://" + env("BACK_URL"),
+    "https://" + env("FRONT_URL"),
 ]
 CORS_ALLOW_HEADERS = [
     'accept',
