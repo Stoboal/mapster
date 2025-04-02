@@ -28,7 +28,7 @@ def check_telegram_auth(raw_init_data: str) -> bool:
 
     data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
 
-    secret_key = hashlib.sha256(BOT_TOKEN.encode()).digest()
+    secret_key = hmac.new(b'WebAppData', BOT_TOKEN.encode(), hashlib.sha256).digest()
     computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(computed_hash, received_hash)
 
