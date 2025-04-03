@@ -24,7 +24,11 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 
 DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = [env("BACK_URL")]
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    env("BACK_URL")
+]
 
 DOMAIN_URL = "https://" + env("BACK_URL")
 
@@ -211,6 +215,7 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
     "https://web.telegram.org",
     "https://" + env("BACK_URL"),
     "https://" + env("FRONT_URL"),
