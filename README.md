@@ -1,14 +1,10 @@
 # Mapster 🌍
 
-## ✨ Features
-
-* 📍 Guess locations based on Google Street Views
-* 🗺️ Interactive map for placing your guess
-* 💯 Scoring system based on distance from the correct answer.
-
-## 🛠️ Built With
-
-This project was built using the following technologies: Django REST, PostgreSQL, React, CSS, Google Cloud Platform, Render.
+## 🚀How to try?
+* Find @mapster_game_bot in Telegram
+* Click on "Play" inline button
+* You probably will have to wait 40-60 seconds to start the server because this project is hosted on a free server. I appreciate your patience ;)
+* Enjoy the game!
 
 ## 📖 Usage
 
@@ -21,3 +17,13 @@ After launching the application:
 6.  Submit your choice and see how close you were!
 7.  Check your profile.
 8.  Check your place in the Leaderboard.
+   
+## ✨ Features
+
+* 📍 Guess locations based on Google Street Views
+* 🗺️ Interactive map for placing your guess
+* 💯 Scoring system based on distance from the correct answer.
+
+## 🛠️ Built With
+
+This project was built using the following technologies: Django REST, PostgreSQL, React, CSS, Google Cloud Platform, Render.
