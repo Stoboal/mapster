@@ -9,6 +9,7 @@
 /media/
 .env
 /staticfiles/
+/static/
 
 *.iml
 *.iws
