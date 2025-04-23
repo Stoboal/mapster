@@ -2,6 +2,8 @@ import os
 import environ
 from pathlib import Path
 
+from celery.schedules import crontab
+
 # Environment
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -34,13 +36,17 @@ DOMAIN_URL = "https://" + env("BACK_URL")
 
 # Application definition
 INSTALLED_APPS = [
+    # APPS
     'core',
     'users',
 
+    # PACKAGES
     'corsheaders',
+    'django_celery_beat',
     'rest_framework',
     'rest_framework.authtoken',
 
+    # CORE
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -136,6 +142,20 @@ INTERNAL_IPS = [
     "127.0.0.1",
 ]
 
+# Celery
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+CELERY_TIMEZONE = "UTC"
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+CELERY_BEAT_SCHEDULE = {
+    # Reset daily moves every day at midnight
+    'reset-daily-moves-at-midnight': {
+        'task': 'users.tasks.reset_daily_moves',
+        'schedule': crontab(minute=0, hour=0),
+    }
+}
+
 # Logging
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
 if not os.path.exists(LOG_DIR):
@@ -188,7 +208,6 @@ LOGGING = {
         },
     },
 }
-
 
 # REST
 REST_FRAMEWORK = {

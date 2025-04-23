@@ -7,8 +7,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .mixins import AuthenticatedMixin
-from .models import Location, Guess, Rating
-from .serializers import TelegramUserSerializer, GuessSerializer, LocationSerializer, RatingSerializer
+from .models import Location, GameResult, Rating
+from .serializers import TelegramUserSerializer, GameResultSerializer, LocationSerializer, RatingSerializer
 
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class GetLocationAPIView(AuthenticatedMixin, APIView):
     def get(self, request):
         user = self.get_user(request)
 
-        guessed_location_ids = Guess.objects.filter(user=user).values_list('location_id', flat=True)
+        guessed_location_ids = GameResult.objects.filter(user=user).values_list('location_id', flat=True)
         location_queryset = Location.objects.exclude(id__in=Subquery(guessed_location_ids))
         if user.games <= 5:
             location_queryset = location_queryset.filter(complexity='easy')
@@ -75,7 +75,7 @@ class SubmitGuessAPIView(AuthenticatedMixin, APIView):
         data = request.data.copy()
         data['user_id'] = request.user.id
 
-        serializer = GuessSerializer(data=data)
+        serializer = GameResultSerializer(data=data)
         if serializer.is_valid():
             guess = serializer.save()
             logger.info(f'Guess {guess} was submitted by user {guess.user}')
@@ -85,6 +85,7 @@ class SubmitGuessAPIView(AuthenticatedMixin, APIView):
                     "distance_error": f"{guess.distance_error} kilometers",
                     "duration": f"{guess.duration} seconds",
                     "score": guess.score,
+                    "moves used": f"{guess.moves_used} moves",
                 },
                 status=status.HTTP_201_CREATED
             )

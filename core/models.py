@@ -3,6 +3,7 @@ import re
 import logging
 import json
 
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
 from django.db.transaction import atomic
 from django.utils.timezone import now
@@ -15,8 +16,12 @@ from users.models import TelegramUser
 
 logger = logging.getLogger(__name__)
 
+MAX_PANORAMA_MOVES = 5
 
 def get_coordinates(street_view_url: str) -> tuple or None:
+    """
+    Extracts latitude and longitude coordinates from a Google Street View URL.
+    """
     try:
         response = requests.head(street_view_url, allow_redirects=True)
         final_url = response.url
@@ -32,6 +37,10 @@ def get_coordinates(street_view_url: str) -> tuple or None:
         return None
 
 def get_country(lat: float, lng: float) -> str:
+    """
+    Retrieves the country name for given geographical coordinates using Google Maps Geocoding API.
+    """
+
     url = f'https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lng}&key={env("GOOGLE_MAP_API")}'
     data = json.loads(request(method='GET', url=url).data)
     for result in data['results']:
@@ -39,9 +48,34 @@ def get_country(lat: float, lng: float) -> str:
             if 'country' in component['types']:
                 country = component['long_name']
                 return country
+    
+    logger.warning(f'Country not found for coordinates: lat={lat}, lng={lng}')        
+    raise ValueError('Country not found') 
 
 
 class Location(models.Model):
+    """
+    A model representing a geographical location with Street View data and statistics.
+
+    Attributes:
+        id (AutoField): Primary key for the location.
+        created_at (DateTimeField): Timestamp when the location was created.
+        street_view_url (URLField): URL to the Google Street View location.
+        lat (FloatField): Latitude coordinate of the location.
+        lng (FloatField): Longitude coordinate of the location.
+        country (CharField): Name of the country where the location is situated.
+        complexity (CharField): Difficulty level of the location ('easy', 'normal', 'hard').
+        total_guesses (PositiveIntegerField): Total number of guesses made for this location.
+        total_errors (FloatField): Sum of all distance errors for this location.
+        total_time (PositiveIntegerField): Total time spent by users guessing this location.
+        total_moves (PositiveIntegerField): Total number of panorama moves made at this location.
+        total_score (PositiveIntegerField): Sum of all scores achieved at this location.
+        avg_error (FloatField): Average distance error for all guesses.
+        avg_time (PositiveIntegerField): Average time spent per guess.
+        avg_moves (PositiveIntegerField): Average number of moves per guess.
+        avg_score (FloatField): Average score achieved at this location.
+    """
+
     COMPLEXITY = (
         ('easy', 'easy'),
         ('normal', 'normal'),
@@ -56,11 +90,16 @@ class Location(models.Model):
     country = models.CharField(max_length=100, blank=True, null=True)
     complexity = models.CharField(max_length=10, choices=COMPLEXITY, default='normal')
 
+    # STATISTICS
     total_guesses = models.PositiveIntegerField(default=0)
     total_errors = models.FloatField(default=0.0)
     total_time = models.PositiveIntegerField(default=0)
+    total_moves = models.PositiveIntegerField(default=0)
+    total_score = models.PositiveIntegerField(default=0)
     avg_error = models.FloatField(default=0.0)
     avg_time = models.PositiveIntegerField(default=0)
+    avg_moves = models.PositiveIntegerField(default=0)
+    avg_score = models.FloatField(default=0.0)
 
     class Meta:
         ordering = ['-id']
@@ -86,13 +125,42 @@ class Location(models.Model):
         else:
             logger.info(f'Object was changed: Location, id={self.pk}: lat={self.lat}, lng={self.lng}.')
 
+    def recalculate_location_stats(self, duration: int, error: float, score: int, moves: int) -> None:
+        self.total_guesses += 1
+        self.total_time += duration
+        self.total_errors += error
+        self.total_moves += moves
+        self.total_score += score
 
-class Guess(models.Model):
+        self.avg_error = self.total_errors / self.total_guesses
+        self.avg_time = self.total_time / self.total_guesses
+        self.avg_moves = self.total_moves / self.total_guesses
+        self.avg_score = self.total_errors / self.total_guesses
+        self.avg_score = self.total_guesses / self.total_score if self.total_score > 0 else 0.0
+
+
+class GameResult(models.Model):
+    """
+    Represents a single game attempt by a user to guess a location.
+
+    Attributes:
+        id (AutoField): Primary key for the game result.
+        user (ForeignKey): Reference to the TelegramUser who made the guess.
+        location (ForeignKey): Reference to the Location that was being guessed.
+        guessed_at (DateTimeField): Timestamp when the guess was made.
+        moves_used (PositiveIntegerField): Number of panorama moves used during the guess.
+        guessed_lat (FloatField): Latitude coordinate guessed by the user.
+        guessed_lng (FloatField): Longitude coordinate guessed by the user.
+        distance_error (FloatField): Distance in kilometers between guessed and actual location.
+        duration (PositiveIntegerField): Time taken to make the guess in seconds.
+        score (FloatField): Calculated score for the guess based on accuracy and time.
+    """
+
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(TelegramUser, on_delete=models.CASCADE, related_name='guesses')
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='guesses')
     guessed_at = models.DateTimeField(auto_now_add=True)
-
+    moves_used = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(MAX_PANORAMA_MOVES)])
     guessed_lat = models.FloatField(null=True, blank=True)
     guessed_lng = models.FloatField(null=True, blank=True)
     distance_error = models.FloatField(null=True, blank=True)
@@ -105,12 +173,20 @@ class Guess(models.Model):
     def calculate_score(self) -> int:
         error = self.distance_error
         time = self.duration
+        score = 0
 
         if error < 2000:
+            if self.moves_used < MAX_PANORAMA_MOVES:
+                if self.moves_used == 0:
+                    score += 100
+                elif self.moves_used == 1:
+                    score += 50
+                else:
+                    score += self.moves_used * 10
             if self.duration <= 60:
-                score = ((60 - time) * 5  + (2000 - error)) / 10
+                score += ((60 - time) * 5  + (2000 - error)) / 10
             else:
-                score = (2000 - error) / 10
+                score += (2000 - error) / 10
         else:
             score = 0
 
@@ -121,13 +197,8 @@ class Guess(models.Model):
         self.distance_error = self.calculate_distance_error()
         self.score = self.calculate_score()
 
-        self.user.recalculate_player_stats(self.duration, self.distance_error, self.score)
-
-        self.location.total_guesses += 1
-        self.location.total_errors += self.distance_error
-        self.location.total_time += self.duration
-        self.location.avg_error = self.location.total_errors / self.location.total_guesses
-        self.location.avg_time = self.location.total_time / self.location.total_guesses
+        self.user.recalculate_player_stats(self.duration, self.distance_error, self.score, self.moves_used)
+        self.location.recalculate_location_stats(self.duration, self.distance_error, self.score, self.moves_used)
 
         self.user.save()
         self.location.save()
@@ -180,6 +251,20 @@ class Guess(models.Model):
 
 
 class Rating(models.Model):
+    """
+    A model representing user ratings and leaderboard data.
+
+    Attributes:
+        id (AutoField): Primary key for the rating entry.
+        data (JSONField): JSON array containing user ranking data including username,
+                         games played, total score, and average score per game.
+        updated_at (DateTimeField): Timestamp of the last rating update.
+
+    Methods:
+        update_rating(): Updates the rating data if more than 15 seconds have passed
+                        since the last update or if the data has changed.
+    """
+
     id = models.AutoField(primary_key=True)
     data = models.JSONField(default=list)
     updated_at = models.DateTimeField(auto_now=True, null=True)

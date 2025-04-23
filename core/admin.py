@@ -17,7 +17,7 @@ class LocationAdmin(admin.ModelAdmin):
         return super().get_fields(request, obj)
 
 
-@admin.register(Guess)
+@admin.register(GameResult)
 class GuessAdmin(admin.ModelAdmin):
     list_display = ('id', 'score', 'user_id', 'location', 'distance_error', 'duration', 'guessed_at')
     list_filter = ('id', 'score', 'user_id', 'location', 'distance_error', 'duration', 'guessed_at')
