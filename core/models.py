@@ -1,8 +1,11 @@
+import os
+
 import requests
 import re
 import logging
 import json
 
+import telebot
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
 from django.db.transaction import atomic
@@ -168,7 +171,7 @@ class GameResult(models.Model):
     score = models.FloatField(null=True, blank=True)
 
     class Meta:
-        verbose_name_plural = 'Guesses'
+        verbose_name_plural = 'Games'
 
     def calculate_score(self) -> int:
         error = self.distance_error
@@ -294,3 +297,65 @@ class Rating(models.Model):
                 self.updated_at = current_time
                 self.save()
         logger.info(f'Rating data was updated')
+
+class Feedback(models.Model):
+    """
+    A model representing user feedback and administrative responses.
+
+    Attributes:
+        id (AutoField): Primary key for the feedback entry.
+        User (ForeignKey): Reference to the TelegramUser who submitted the feedback.
+        Created_at (DateTimeField): Timestamp when the feedback was submitted.
+        Updated_at (DateTimeField): Timestamp of the last update to the feedback.
+        Answered_at (DateTimeField): Timestamp when admin answered the feedback.
+        Answered (BooleanField): Indicates whether the feedback has been answered.
+        Feedback_text (TextField): The actual feedback content submitted by the user.
+        Answer (TextField): The administrative response to the feedback.
+    """
+
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(TelegramUser, on_delete=models.CASCADE, related_name='feedback')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    answered_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    answered = models.BooleanField(default=False)
+
+    feedback_text = models.TextField(blank=True, null=True)
+    answer = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-answered', '-created_at']
+
+    def __str__(self):
+        return f'Feedback id {self.id}, user {self.user}, message "{self.feedback_text}"'
+
+    def save(self, *args, **kwargs):
+        if self.answer and not self.answered:
+            self.answered = True
+            self.answered_at = now()
+        super().save(*args, **kwargs)
+
+    def send_answer(self):
+        if not self.answered or not self.answer or not self.user or not hasattr(self.user, 'chat_id'):
+            logger.warning(
+                f"Cannot send answer for Feedback id {self.id}: missing data")
+            return
+
+        user_chat_id = self.user.chat_id
+        try:
+            token = os.environ.get("TELEGRAM_TOKEN")
+            if not token:
+                logger.error("TELEGRAM_TOKEN environment variable not set.")
+                return
+            bot = telebot.TeleBot(token)
+            message_text = f'Answer for your feedback:\n\n{self.answer}\n\nThank you for your opinion!'
+            bot.send_message(chat_id=user_chat_id, text=message_text)
+            logger.info(f'Answer for Feedback id {self.id} for user {self.user} was sent successfully.')
+            self.sent_at = now()
+            self.save(update_fields=['sent_at'])
+
+        except Exception as e:
+            logger.error(f"Error sending answer for Feedback id {self.id}: {e}")
+
+

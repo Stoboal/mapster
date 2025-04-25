@@ -8,8 +8,8 @@ from rest_framework.views import APIView
 
 from .mixins import AuthenticatedMixin
 from .models import Location, GameResult, Rating
-from .serializers import TelegramUserSerializer, GameResultSerializer, LocationSerializer, RatingSerializer
-
+from .serializers import TelegramUserSerializer, GameResultSerializer, LocationSerializer, RatingSerializer, \
+    FeedbackSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -71,11 +71,10 @@ class SubmitGuessAPIView(AuthenticatedMixin, APIView):
     def post(self, request):
         # Ensure the user is authenticated before processing the request
         self.get_user(request)
-
         data = request.data.copy()
         data['user_id'] = request.user.id
-
         serializer = GameResultSerializer(data=data)
+
         if serializer.is_valid():
             guess = serializer.save()
             logger.info(f'Guess {guess} was submitted by user {guess.user}')
@@ -91,4 +90,19 @@ class SubmitGuessAPIView(AuthenticatedMixin, APIView):
             )
 
         logger.warning(f'Error in guess submission by user {request.user}: {serializer.errors}')
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class SendFeedbackAPIView(AuthenticatedMixin, APIView):
+    def post(self, request):
+        self.get_user(request)
+        data = request.data.copy()
+        data['user_id'] = request.user.id
+        serializer = FeedbackSerializer(data=data)
+
+        if serializer.is_valid():
+            feedback = serializer.save()
+            logger.info(f'Feedback {feedback} was submitted by user {feedback.user}')
+            return Response({"message": "Feedback submitted successfully"})
+
+        logger.warning(f'Error in feedback submission by user {request.user}: {serializer.errors}')
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

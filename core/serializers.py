@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from users.models import TelegramUser
-from .models import Location, GameResult, Rating
+from .models import Location, GameResult, Rating, Feedback
 
 class TelegramUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,3 +33,11 @@ class RatingSerializer(serializers.ModelSerializer):
         model = Rating
         fields = ['data', 'updated_at']
         read_only_fields = ['data', 'updated_at']
+
+
+class FeedbackSerializer(serializers.ModelSerializer):
+    user_id = serializers.PrimaryKeyRelatedField(queryset=TelegramUser.objects.all(), source='user')
+    class Meta:
+        model = Feedback
+        fields = ['id', 'user_id','feedback_text', 'created_at', 'updated_at', 'answered', 'answer', 'sent_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'answered', 'answer', 'answered_at', 'sent_at']

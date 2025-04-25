@@ -16,8 +16,6 @@ from users.models import TelegramUser
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = env("TELEGRAM_TOKEN")
-TELEGRAM_AUTH_TIMEOUT = 3600
-
 
 def check_telegram_auth(raw_init_data: str) -> bool:
     params = dict(parse_qsl(raw_init_data, keep_blank_values=True))
@@ -37,37 +35,68 @@ def check_telegram_auth(raw_init_data: str) -> bool:
 @permission_classes([])
 def telegram_auth(request):
     raw_init_data = request.data.get("initData")
-    if not raw_init_data or not check_telegram_auth(raw_init_data):
+    if not raw_init_data:
+        return JsonResponse({"error": "initData not provided"}, status=400)
+    if not check_telegram_auth(raw_init_data):
         return JsonResponse({"error": "Invalid Telegram signature"}, status=403)
 
-    parsed_data = dict(parse_qsl(raw_init_data))
-    user_data_raw = parsed_data.get("user", "{}")
-    user_data = json.loads(user_data_raw)
+    try:
+        parsed_data = dict(parse_qsl(raw_init_data))
+        user_data_raw = parsed_data.get("user", "{}")
+        if not user_data_raw:
+             logger.error("User data is missing in initData.")
+             return JsonResponse({"error": "User data missing in initData"}, status=400)
 
-    telegram_id = user_data.get("id")
-    username = user_data.get("username", f"tg_{telegram_id}")
+        user_data = json.loads(user_data_raw)
 
-    user, created = TelegramUser.objects.get_or_create(
-        telegram_id=telegram_id,
-        defaults={"username": username}
-    )
-    if created:
-        logger.info(f'Object was created: TelegramUser, telegram_id={telegram_id}, username={username}')
+        telegram_id = user_data.get("id")
+        if not telegram_id:
+             logger.error("User ID is missing in user data from initData.")
+             return JsonResponse({"error": "User ID missing in user data"}, status=400)
 
-    if not created and user.username != username and not user.username.startswith("tg_"):
-        user.username = username
-        user.save(update_fields=["username"])
-        logger.info(f'Object was updated: TelegramUser, telegram_id={telegram_id}, username={username}')
+        chat_id = parsed_data.get("chatId")
+        username = user_data.get("username", f"tg_{telegram_id}")
 
-    token, _ = Token.objects.get_or_create(user=user)
-    user.last_login = now()
-    user.save(update_fields=["last_login"])
-    logger.info(f'User was logged in: telegram_id={telegram_id}, username={username}')
+        user, created = TelegramUser.objects.get_or_create(
+            telegram_id=telegram_id,
+            defaults={
+                "username": username,
+                "chat_id": chat_id,
+            }
+        )
+        if created:
+            logger.info(f'Object was created: TelegramUser, telegram_id={telegram_id}, chat_id={chat_id} username={username}')
 
-    return JsonResponse({
-        "token": token.key,
-        "user": {
-            "id": user.id,
-            "username": user.username
-        }
-    })
+        if not created and user.username != username and not user.username.startswith("tg_"):
+            user.username = username
+            user.save(update_fields=["username"])
+            logger.info(f'Object was updated: TelegramUser, telegram_id={telegram_id}, username={username}')
+
+        if not user.chat_id:
+            user.chat_id = chat_id
+            user.save(update_fields=["chat_id"])
+            logger.info(f'Object was updated: TelegramUser, telegram_id={telegram_id}, chat_id={chat_id}')
+
+        token, token_created = Token.objects.get_or_create(user=user)
+        if token_created:
+            logger.info(f'New token was created for user: telegram_id={telegram_id}, username={username}')
+
+        user.last_login = now()
+        user.save(update_fields=["last_login"])
+        logger.info(f'User was successfully logged in: telegram_id={telegram_id}, username={username}')
+
+        return JsonResponse({
+            "token": token.key,
+            "user": {
+                "id": user.id,
+                "username": user.username
+            }
+        })
+
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode user data JSON from initData: {user_data_raw}")
+        return JsonResponse({"error": "Invalid user data format"}, status=400)
+    except Exception as e:
+        logger.exception(f"An unexpected error occurred during Telegram authentication: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+

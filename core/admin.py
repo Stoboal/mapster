@@ -39,3 +39,13 @@ class GuessAdmin(admin.ModelAdmin):
 @admin.register(Rating)
 class RatingAdmin(admin.ModelAdmin):
     list_display = ('data', 'updated_at')
+
+
+@admin.register(Feedback)
+class FeedbackAdmin(admin.ModelAdmin):
+    list_display = ('user_id', 'feedback_text', 'created_at', 'answered', 'answer', 'answered_at')
+    list_filter = ('user_id', 'feedback_text', 'created_at', 'answered', 'answer', 'answered_at')
+
+    def user_id(self, obj):
+        return f"{obj.user.id}"
+    user_id.short_description = 'User'

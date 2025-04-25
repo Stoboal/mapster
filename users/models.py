@@ -6,6 +6,7 @@ DAILY_MOVES_LIMIT = 15
 
 class TelegramUser(AbstractUser):
     telegram_id = models.CharField(max_length=255, unique=True)
+    chat_id = models.BigIntegerField(unique=True, null=True, blank=True)
     username = models.CharField(max_length=255, unique=False)
 
     # STATISTICS

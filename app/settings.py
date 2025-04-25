@@ -149,10 +149,15 @@ CELERY_TIMEZONE = "UTC"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 CELERY_BEAT_SCHEDULE = {
-    # Reset daily moves every day at midnight
+    # Reset daily moves every day at midnight:
     'reset-daily-moves-at-midnight': {
         'task': 'users.tasks.reset_daily_moves',
         'schedule': crontab(minute=0, hour=0),
+    },
+    # Check and send feedback answers every hour:
+    'send-feedback-answers': {
+        'task': 'core.tasks.send_feedback_answer',
+        'schedule': crontab(minute=0),
     }
 }
 
