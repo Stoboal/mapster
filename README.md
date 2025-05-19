@@ -1,6 +1,6 @@
 # Mapster 🌍
 
-## 🚀How to try?
+## 🚀How to try? (Temporary not available)
 * Find @mapster_game_bot in Telegram
 * Click on "Play" inline button
 * You probably will have to wait 40-60 seconds to start the server because this project is hosted on a free server. I appreciate your patience ;)
