@@ -3,7 +3,7 @@ import logging
 from celery import shared_task
 from django.utils.timezone import now
 
-from users.models import TelegramUser, DAILY_MOVES_LIMIT
+from users.models import DAILY_MOVES_LIMIT, TelegramUser
 
 logger = logging.getLogger(__name__)
 

@@ -7,9 +7,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .mixins import AuthenticatedMixin
-from .models import Location, GameResult, Rating
-from .serializers import TelegramUserSerializer, GameResultSerializer, LocationSerializer, RatingSerializer, \
-    FeedbackSerializer
+from .models import GameResult, Location, Rating
+from .serializers import (
+    FeedbackSerializer,
+    GameResultSerializer,
+    LocationSerializer,
+    RatingSerializer,
+    TelegramUserSerializer,
+)
 
 logger = logging.getLogger(__name__)
 

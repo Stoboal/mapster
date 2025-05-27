@@ -1,7 +1,7 @@
 import os
-import environ
 from pathlib import Path
 
+import environ
 from celery.schedules import crontab
 
 # Environment

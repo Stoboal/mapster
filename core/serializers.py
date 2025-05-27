@@ -1,7 +1,9 @@
 from rest_framework import serializers
 
 from users.models import TelegramUser
-from .models import Location, GameResult, Rating, Feedback
+
+from .models import Feedback, GameResult, Location, Rating
+
 
 class TelegramUserSerializer(serializers.ModelSerializer):
     class Meta:

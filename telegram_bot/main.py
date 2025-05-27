@@ -1,6 +1,6 @@
 import os
-import telebot
 
+import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 token = os.environ.get("TELEGRAM_TOKEN")

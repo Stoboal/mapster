@@ -17,4 +17,37 @@ dependencies = [
     "pytelegrambotapi==4.26.0",
     "redis>=5.2.1",
     "requests>=2.32.3",
+    "ruff>=0.11.11",
 ]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "W", "I", "B", "C90", "UP"]
+ignore = ["E501"]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "migrations"
+]
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

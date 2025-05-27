@@ -1,12 +1,11 @@
+import json
+import logging
 import os
+import re
 
 import requests
-import re
-import logging
-import json
-
 import telebot
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.transaction import atomic
 from django.utils.timezone import now
@@ -15,7 +14,6 @@ from urllib3 import request
 
 from app.settings import env
 from users.models import TelegramUser
-
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +49,9 @@ def get_country(lat: float, lng: float) -> str:
             if 'country' in component['types']:
                 country = component['long_name']
                 return country
-    
-    logger.warning(f'Country not found for coordinates: lat={lat}, lng={lng}')        
-    raise ValueError('Country not found') 
+
+    logger.warning(f'Country not found for coordinates: lat={lat}, lng={lng}')
+    raise ValueError('Country not found')
 
 
 class Location(models.Model):
@@ -296,7 +294,7 @@ class Rating(models.Model):
                 self.data = rating_data
                 self.updated_at = current_time
                 self.save()
-        logger.info(f'Rating data was updated')
+        logger.info('Rating data was updated')
 
 class Feedback(models.Model):
     """

@@ -1,5 +1,12 @@
 from django.urls import path
-from .views import *
+
+from .views import (
+    GetLocationAPIView,
+    GetRatingAPIView,
+    GetUserAPIView,
+    SendFeedbackAPIView,
+    SubmitGuessAPIView,
+)
 
 urlpatterns = [
     path('location/random', GetLocationAPIView.as_view(), name='get_location'),

@@ -2,16 +2,19 @@ import hashlib
 import hmac
 import json
 import logging
+from urllib.parse import parse_qsl
 
 from django.http import JsonResponse
 from django.utils.timezone import now
 from rest_framework.authtoken.models import Token
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from urllib.parse import parse_qsl
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 
 from app.settings import env
 from users.models import TelegramUser
-
 
 logger = logging.getLogger(__name__)
 
