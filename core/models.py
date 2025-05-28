@@ -17,24 +17,28 @@ from users.models import TelegramUser
 
 logger = logging.getLogger(__name__)
 
+# Constants
 MAX_PANORAMA_MOVES = 5
+DISTANCE_ERROR_LIMIT = 2000
 
 def get_coordinates(street_view_url: str) -> tuple or None:
     """
     Extracts latitude and longitude coordinates from a Google Street View URL.
     """
+    # Attempt to follow redirects to get the final URL
     try:
         response = requests.head(street_view_url, allow_redirects=True)
         final_url = response.url
-
         match = re.search(r'@(-?\d+\.\d+),(-?\d+\.\d+)', final_url)
+
         if match:
             lat, lng = match.groups()
             return float(lat), float(lng)
 
         return None
+
     except Exception as e:
-        print("Error: ", e)
+        logger.error('Error extracting coordinates from URL', e)
         return None
 
 def get_country(lat: float, lng: float) -> str:
@@ -42,9 +46,12 @@ def get_country(lat: float, lng: float) -> str:
     Retrieves the country name for given geographical coordinates using Google Maps Geocoding API.
     """
 
+    # Construct the API URL with coordinates and API key
     url = f'https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lng}&key={env("GOOGLE_MAP_API")}'
     data = json.loads(request(method='GET', url=url).data)
+
     for result in data['results']:
+        # Iterate through address components to find the country
         for component in result['address_components']:
             if 'country' in component['types']:
                 country = component['long_name']
@@ -110,6 +117,7 @@ class Location(models.Model):
         return f'{self.id}'
 
     def save(self, *args, **kwargs):
+        # If coordinates are not set, try to extract them from the URL
         if not self.lat and not self.lng:
             coordinates = get_coordinates(self.street_view_url)
             if coordinates:
@@ -136,8 +144,9 @@ class Location(models.Model):
         self.avg_error = self.total_errors / self.total_guesses
         self.avg_time = self.total_time / self.total_guesses
         self.avg_moves = self.total_moves / self.total_guesses
-        self.avg_score = self.total_errors / self.total_guesses
         self.avg_score = self.total_guesses / self.total_score if self.total_score > 0 else 0.0
+
+        logger.info(f'Location statistics were recalculated. Location: {self.id}')
 
 
 class GameResult(models.Model):
@@ -172,11 +181,14 @@ class GameResult(models.Model):
         verbose_name_plural = 'Games'
 
     def calculate_score(self) -> int:
+        """
+        Calculate score based on error, moves, and time
+        """
         error = self.distance_error
         time = self.duration
         score = 0
 
-        if error < 2000:
+        if error < DISTANCE_ERROR_LIMIT:
             if self.moves_used < MAX_PANORAMA_MOVES:
                 if self.moves_used == 0:
                     score += 100
@@ -185,9 +197,9 @@ class GameResult(models.Model):
                 else:
                     score += self.moves_used * 10
             if self.duration <= 60:
-                score += ((60 - time) * 5  + (2000 - error)) / 10
+                score += ((60 - time) * 5  + (DISTANCE_ERROR_LIMIT - error)) / 10
             else:
-                score += (2000 - error) / 10
+                score += (DISTANCE_ERROR_LIMIT - error) / 10
         else:
             score = 0
 
@@ -198,6 +210,7 @@ class GameResult(models.Model):
         self.distance_error = self.calculate_distance_error()
         self.score = self.calculate_score()
 
+        # Recalculate stats for user and location
         self.user.recalculate_player_stats(self.duration, self.distance_error, self.score, self.moves_used)
         self.location.recalculate_location_stats(self.duration, self.distance_error, self.score, self.moves_used)
 
@@ -205,9 +218,7 @@ class GameResult(models.Model):
         self.location.save()
 
         super().save(*args, **kwargs)
-        logger.info(
-            f'New object: Guess, user={self.user.id}, location={self.location}'
-        )
+        logger.info(f'New object: Guess, user={self.user.id}, location={self.location}')
 
     @atomic
     def delete(self, *args, **kwargs):
@@ -247,7 +258,7 @@ class GameResult(models.Model):
             f'Object was deleted: Guess, id={self.pk}, user={self.user.id}, location={self.location}'
         )
 
-    def calculate_distance_error(self):
+    def calculate_distance_error(self) -> float:
         return geodesic((self.guessed_lat, self.guessed_lng), (self.location.lat, self.location.lng)).kilometers
 
 
@@ -273,12 +284,13 @@ class Rating(models.Model):
     def __str__(self):
         return f'rating_data:{self.updated_at}'
 
-    def update_rating(self):
+    def update_rating(self) -> None:
         current_time = now()
 
+        # Avoid frequent updates
         if self.updated_at is not None and (current_time - self.updated_at).total_seconds() < 15:
             return
-
+        # Fetch users with enough games and order by score
         users = TelegramUser.objects.filter(games__gte=5).order_by('-total_score')
         rating_data = [
             {
@@ -289,6 +301,7 @@ class Rating(models.Model):
             }
             for user in users
         ]
+        # Update data only if it has changed
         if self.data != rating_data:
             with transaction.atomic():
                 self.data = rating_data
@@ -329,12 +342,14 @@ class Feedback(models.Model):
         return f'Feedback id {self.id}, user {self.user}, message "{self.feedback_text}"'
 
     def save(self, *args, **kwargs):
+        # Mark as answered and set timestamp if answer is provided
         if self.answer and not self.answered:
             self.answered = True
             self.answered_at = now()
         super().save(*args, **kwargs)
 
-    def send_answer(self):
+    # Method to send the answer to the user via Telegram
+    def send_answer(self) -> None:
         if not self.answered or not self.answer or not self.user or not hasattr(self.user, 'chat_id'):
             logger.warning(
                 f"Cannot send answer for Feedback id {self.id}: missing data")
@@ -346,6 +361,7 @@ class Feedback(models.Model):
             if not token:
                 logger.error("TELEGRAM_TOKEN environment variable not set.")
                 return
+            # Initialize Telegram bot and send message
             bot = telebot.TeleBot(token)
             message_text = f'Answer for your feedback:\n\n{self.answer}\n\nThank you for your opinion!'
             bot.send_message(chat_id=user_chat_id, text=message_text)
@@ -355,5 +371,3 @@ class Feedback(models.Model):
 
         except Exception as e:
             logger.error(f"Error sending answer for Feedback id {self.id}: {e}")
-
-

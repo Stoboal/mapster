@@ -2,9 +2,20 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 
-DAILY_MOVES_LIMIT = 15
+# Constants
+DAILY_MOVES_LIMIT = 10
 
 class TelegramUser(AbstractUser):
+    """
+    Represents a Telegram user model with attributes and statistics relevant for the application.
+
+    This class extends AbstractUser and adds custom fields to represent Telegram-specific user
+    attributes, such as `telegram_id` and `chat_id`, along with game-related statistics. It
+    includes functionality to recalculate player statistics after each game session, providing
+    a comprehensive view of individual user performance regarding games played, errors made,
+    time spent, and scores achieved.
+    """
+
     telegram_id = models.CharField(max_length=255, unique=True)
     chat_id = models.BigIntegerField(unique=True, null=True, blank=True)
     username = models.CharField(max_length=255, unique=False)
@@ -28,6 +39,10 @@ class TelegramUser(AbstractUser):
         return f'id: {self.telegram_id}, username: {self.username}'
 
     def recalculate_player_stats(self, duration: int, error: float, score: int, moves: int) -> None:
+        """
+        Method for recalculating player stats after each game session.
+        """
+
         self.games += 1
         self.total_time += duration
         self.total_errors += error

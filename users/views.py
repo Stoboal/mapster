@@ -21,6 +21,15 @@ logger = logging.getLogger(__name__)
 BOT_TOKEN = env("TELEGRAM_TOKEN")
 
 def check_telegram_auth(raw_init_data: str) -> bool:
+    """
+    Verifies the authentication of Telegram web app data by comparing the computed hash of the
+    data with the hash received from Telegram. This ensures the data integrity and authenticity.
+
+    The function processes the raw initialization data by parsing key-value pairs, computes a
+    hash using the HMAC algorithm with a secret key derived from the bot token, and compares it
+    against an expected hash. If the computed hash matches the received hash, the data is
+    considered authentic.
+    """
     params = dict(parse_qsl(raw_init_data, keep_blank_values=True))
     received_hash = params.pop('hash', None)
 
@@ -37,6 +46,22 @@ def check_telegram_auth(raw_init_data: str) -> bool:
 @authentication_classes([])
 @permission_classes([])
 def telegram_auth(request):
+    """
+    Handles user authentication via Telegram's authorized login data. Validates the
+    "initData" parameter from the request to ensure it contains an authenticated
+    signature and user details from Telegram. Processes the user's data to create
+    or update a TelegramUser instance in the database and generates a token for
+    the authenticated session. Returns a JSON response including the generated
+    token and user details.
+
+    Raises appropriate HTTP status codes (400, 403, or 500) for errors such as:
+    - Missing or invalid "initData".
+    - JSON decoding errors.
+    - Unexpected server errors.
+
+    This method supports authentication and session token creation for a Telegram
+    user based on encrypted Telegram data.
+    """
     raw_init_data = request.data.get("initData")
     if not raw_init_data:
         return JsonResponse({"error": "initData not provided"}, status=400)
@@ -46,13 +71,14 @@ def telegram_auth(request):
     try:
         parsed_data = dict(parse_qsl(raw_init_data))
         user_data_raw = parsed_data.get("user", "{}")
+
         if not user_data_raw:
              logger.error("User data is missing in initData.")
              return JsonResponse({"error": "User data missing in initData"}, status=400)
 
         user_data = json.loads(user_data_raw)
-
         telegram_id = user_data.get("id")
+
         if not telegram_id:
              logger.error("User ID is missing in user data from initData.")
              return JsonResponse({"error": "User ID missing in user data"}, status=400)
@@ -99,7 +125,7 @@ def telegram_auth(request):
     except json.JSONDecodeError:
         logger.error(f"Failed to decode user data JSON from initData: {user_data_raw}")
         return JsonResponse({"error": "Invalid user data format"}, status=400)
+
     except Exception as e:
         logger.exception(f"An unexpected error occurred during Telegram authentication: {e}")
         return JsonResponse({"error": "Internal server error"}, status=500)
-
