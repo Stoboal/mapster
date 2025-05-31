@@ -70,11 +70,11 @@ def telegram_auth(request):
 
     try:
         parsed_data = dict(parse_qsl(raw_init_data))
-        user_data_raw = parsed_data.get("user", "{}")
+        user_data_raw = parsed_data.get("user")
 
         if not user_data_raw:
              logger.error("User data is missing in initData.")
-             return JsonResponse({"error": "User data missing in initData"}, status=400)
+             return JsonResponse({"error": "User data is missing in initData"}, status=400)
 
         user_data = json.loads(user_data_raw)
         telegram_id = user_data.get("id")

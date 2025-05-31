@@ -22,6 +22,7 @@ geopy==2.4.1
 idna==3.10
 kombu==5.5.3
 prompt-toolkit==3.0.51
+psycopg2==2.9.10
 psycopg2-binary==2.9.10
 pytelegrambotapi==4.26.0
 python-crontab==3.2.0
