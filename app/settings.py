@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'rest_framework',
     'rest_framework.authtoken',
+    'drf_spectacular',
 
     # CORE
     'django.contrib.admin',
@@ -229,6 +230,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "user": "60/min",
     },
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # SECURITY

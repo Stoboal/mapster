@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from users.models import TelegramUser, DAILY_MOVES_LIMIT
+from users.models import DAILY_MOVES_LIMIT, TelegramUser
 from users.views import check_telegram_auth
 
 

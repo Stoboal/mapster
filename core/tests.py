@@ -524,7 +524,7 @@ class SendFeedbackAPIView(GeneralTestMixin, APITestCase):
         response = self.client.post(self.url, {
             'feedback_text': 'Test feedback'
         })
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['message'], 'Feedback submitted successfully')
         self.assertEqual(Feedback.objects.count(), 1)
         self.assertEqual(Feedback.objects.first().feedback_text, 'Test feedback')

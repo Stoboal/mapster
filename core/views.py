@@ -2,7 +2,8 @@ import logging
 
 from django.db.models import Subquery
 from django.db.models.functions import Random
-from rest_framework import status
+from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
+from rest_framework import status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -19,6 +20,17 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 class GetUserAPIView(AuthenticatedMixin, APIView):
+    """
+    Provides information about the authenticated user's profile.
+    """
+    @extend_schema(
+        summary="Get user profile",
+        description="Retrieves and returns the authenticated user's data.",
+        responses={
+            200: TelegramUserSerializer,
+            401: OpenApiResponse(description="Error: unauthorized or expired token")
+        }
+    )
     def get(self, request):
         user = self.get_user(request)
         serializer = TelegramUserSerializer(user)
@@ -27,6 +39,18 @@ class GetUserAPIView(AuthenticatedMixin, APIView):
 
 
 class GetRatingAPIView(AuthenticatedMixin, APIView):
+    """
+    Provides access to the leaderboard (rating).
+    """
+    @extend_schema(
+        summary="Get rating",
+        description="Retrieves and returns the rating data.",
+        responses={
+            200: RatingSerializer,
+            400: OpenApiResponse(description="Error: rating data update failed"),
+            401: OpenApiResponse(description="Error: unauthorized or expired token"),
+        }
+    )
     def get(self, request):
         user = self.get_user(request)
         rating = Rating.objects.first()
@@ -56,6 +80,18 @@ class GetRatingAPIView(AuthenticatedMixin, APIView):
 
 
 class GetLocationAPIView(AuthenticatedMixin, APIView):
+    """
+    Provides a random location for the user to guess.
+    """
+    @extend_schema(
+        summary="Get random location",
+        description="Retrieves and returns a random location for the user to guess.",
+        responses={
+            200: LocationSerializer,
+            401: OpenApiResponse(description="Error: unauthorized or expired token"),
+            404: OpenApiResponse(description="Error: no available locations found")
+        }
+    )
     def get(self, request):
         user = self.get_user(request)
 
@@ -78,6 +114,19 @@ class GetLocationAPIView(AuthenticatedMixin, APIView):
 
 
 class SubmitGuessAPIView(AuthenticatedMixin, APIView):
+    """
+    Accepts and processes a user's attempt to guess a location.
+    """
+    @extend_schema(
+        summary="Submit guess",
+        description="Accepts and processes a user's attempt to guess a location.",
+        request=GameResultSerializer,
+        responses={
+            201: GameResultSerializer,
+            401: OpenApiResponse(description="Error: unauthorized or expired token"),
+            400: OpenApiResponse(description="Error: invalid guess data"),
+        }
+    )
     def post(self, request):
         # Ensure the user is authenticated before processing the request
         self.get_user(request)
@@ -104,6 +153,31 @@ class SubmitGuessAPIView(AuthenticatedMixin, APIView):
 
 
 class SendFeedbackAPIView(AuthenticatedMixin, APIView):
+    """
+    Accepts and processes a user's feedback.
+    """
+    @extend_schema(
+        summary="Send feedback",
+        description="Accepts and processes a user's feedback.",
+        request=FeedbackSerializer,
+        responses={
+            201: OpenApiResponse(
+                description="Feedback submitted successfully",
+                response=inline_serializer(
+                    name="FeedbackResponse",
+                    fields={
+                        'message': serializers.CharField(),
+                        'distance_error': serializers.CharField(),
+                        'duration': serializers.CharField(),
+                        'score': serializers.IntegerField(),
+                        'moves_used': serializers.CharField()
+                    }
+                )
+            ),
+            401: OpenApiResponse(description="Error: unauthorized or expired token"),
+            400: OpenApiResponse(description="Error: invalid feedback data"),
+        }
+    )
     def post(self, request):
         self.get_user(request)
         data = request.data.copy()
@@ -113,7 +187,10 @@ class SendFeedbackAPIView(AuthenticatedMixin, APIView):
         if serializer.is_valid():
             feedback = serializer.save()
             logger.info(f'Feedback {feedback} was submitted by user {feedback.user}')
-            return Response({"message": "Feedback submitted successfully"})
+            return Response(
+                {"message": "Feedback submitted successfully"},
+                status=status.HTTP_201_CREATED
+            )
 
         logger.warning(f'Error in feedback submission by user {request.user}: {serializer.errors}')
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

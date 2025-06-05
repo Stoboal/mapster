@@ -6,6 +6,8 @@ from urllib.parse import parse_qsl
 
 from django.http import JsonResponse
 from django.utils.timezone import now
+from drf_spectacular.utils import extend_schema, OpenApiResponse, inline_serializer
+from rest_framework import status, serializers
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import (
     api_view,
@@ -45,19 +47,49 @@ def check_telegram_auth(raw_init_data: str) -> bool:
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
+@extend_schema(
+    summary="Telegram authentication",
+    description="Handles user authentication via Telegram's authorized login data.",
+    request=inline_serializer(
+        name="TelegramAuthRequest",
+        fields={
+            "initData": serializers.CharField(
+                help_text="The encrypted Telegram data containing user details and authentication signature."
+            )
+        }
+    ),
+    responses={
+        200: OpenApiResponse(
+            description="Authentication successful",
+            response=inline_serializer(
+                name="TelegramAuthResponse",
+                fields={
+                    "token": serializers.CharField(),
+                    "user": inline_serializer(
+                        name="TelegramAuthUserInfo",
+                        fields={
+                            "id": serializers.IntegerField(),
+                            "username": serializers.CharField()
+                        }
+                    )
+                }
+            )
+        ),
+        400: OpenApiResponse(description="Missing or invalid initData"),
+        403: OpenApiResponse(description="Invalid Telegram signature"),
+        500: OpenApiResponse(description="Unexpected server errors"),
+    }
+)
 def telegram_auth(request):
     """
-    Handles user authentication via Telegram's authorized login data. Validates the
-    "initData" parameter from the request to ensure it contains an authenticated
+    Handles user authentication via Telegram's authorized login data.
+
+    Validates the "initData" parameter from the request to ensure it contains an authenticated
     signature and user details from Telegram. Processes the user's data to create
     or update a TelegramUser instance in the database and generates a token for
-    the authenticated session. Returns a JSON response including the generated
-    token and user details.
+    the authenticated session.
 
-    Raises appropriate HTTP status codes (400, 403, or 500) for errors such as
-    - Missing or invalid "initData".
-    - JSON decoding errors.
-    - Unexpected server errors.
+    Returns a JSON response including the generated token and user details.
 
     This method supports authentication and session token creation for a Telegram
     user based on encrypted Telegram data.
@@ -120,7 +152,7 @@ def telegram_auth(request):
                 "id": user.id,
                 "username": user.username
             }
-        })
+        }, status=status.HTTP_200_OK)
 
     except json.JSONDecodeError:
         logger.error(f"Failed to decode user data JSON from initData: {user_data_raw}")
