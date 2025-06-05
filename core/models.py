@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # Constants
 MAX_PANORAMA_MOVES = 5
 DISTANCE_ERROR_LIMIT = 2000
+RATING_UPDATING_THRESHOLD = 15
 
 def get_coordinates(street_view_url: str) -> tuple or None:
     """
@@ -37,8 +38,8 @@ def get_coordinates(street_view_url: str) -> tuple or None:
 
         return None
 
-    except Exception as e:
-        logger.error('Error extracting coordinates from URL', e)
+    except requests.exceptions.MissingSchema:
+        logger.error('Error extracting coordinates from URL', exc_info=True)
         return None
 
 def get_country(lat: float, lng: float) -> str:
@@ -103,7 +104,7 @@ class Location(models.Model):
     total_errors = models.FloatField(default=0.0)
     total_time = models.PositiveIntegerField(default=0)
     total_moves = models.PositiveIntegerField(default=0)
-    total_score = models.PositiveIntegerField(default=0)
+    total_score = models.FloatField(default=0)
     avg_error = models.FloatField(default=0.0)
     avg_time = models.PositiveIntegerField(default=0)
     avg_moves = models.PositiveIntegerField(default=0)
@@ -134,7 +135,12 @@ class Location(models.Model):
         else:
             logger.info(f'Object was changed: Location, id={self.pk}: lat={self.lat}, lng={self.lng}.')
 
-    def recalculate_location_stats(self, duration: int, error: float, score: int, moves: int) -> None:
+    def recalculate_location_stats(self, duration: int, error: float, score: float, moves: int) -> None:
+        if not isinstance(duration, int) or not isinstance(error, float) or not isinstance(score, float) or not isinstance(moves, int):
+            raise ValueError('Data types are not as expected')
+        if duration <= 0 or error <= 0.0 or score <= 0 or moves < 0:
+            raise ValueError('Some of the values are not positive or zero')
+
         self.total_guesses += 1
         self.total_time += duration
         self.total_errors += error
@@ -180,7 +186,7 @@ class GameResult(models.Model):
     class Meta:
         verbose_name_plural = 'Games'
 
-    def calculate_score(self) -> int:
+    def calculate_score(self) -> float:
         """
         Calculate score based on error, moves, and time
         """
@@ -225,34 +231,52 @@ class GameResult(models.Model):
         self.user.games -= 1
         self.location.total_guesses -= 1
 
+        # Recalculating player stats
         if self.user.games > 1:
             self.user.total_errors -= self.distance_error
             self.user.total_time -= self.duration
             self.user.avg_error = self.user.total_errors / self.user.games
             self.user.avg_time = self.user.total_time / self.user.games
+            self.user.avg_moves_per_game = self.user.total_moves / self.user.games
+            self.user.avg_score = self.user.total_score / self.user.games
+            self.user.daily_moves_remaining += self.moves_used
         else:
             self.user.games = 0
             self.user.total_errors = 0.0
             self.user.total_time = 0
+            self.user.total_moves = 0
+            self.user.total_score = 0.0
             self.user.avg_error = 0.0
             self.user.avg_time = 0
-
+            self.user.avg_moves_per_game = 0
+            self.user.avg_score = 0.0
+            self.user.daily_moves_remaining += self.moves_used
         self.user.save()
 
+        # Recalculating location stats
         if self.location.total_guesses > 1:
             self.location.total_errors -= self.distance_error
             self.location.total_time -= self.duration
+            self.location.total_guesses -= 1
+            self.location.total_moves -= self.moves_used
+            self.location.total_score -= self.score
             self.location.avg_error = self.location.total_errors / self.location.total_guesses
             self.location.avg_time = self.location.total_time / self.location.total_guesses
+            self.location.avg_moves = self.location.total_moves / self.location.total_guesses
+            self.location.avg_score = self.location.total_score / self.location.total_guesses
         else:
             self.location.total_guesses = 0
             self.location.total_errors = 0.0
             self.location.total_time = 0
+            self.location.total_moves = 0
+            self.location.total_score = 0.0
             self.location.avg_error = 0.0
             self.location.avg_time = 0
-
+            self.location.avg_moves = 0
+            self.location.avg_score = 0.0
         self.location.save()
 
+        # Delete the guess
         super().delete(*args, **kwargs)
         logger.info(
             f'Object was deleted: Guess, id={self.pk}, user={self.user.id}, location={self.location}'
@@ -285,12 +309,26 @@ class Rating(models.Model):
         return f'rating_data:{self.updated_at}'
 
     def update_rating(self) -> None:
+        """
+        Updates the rating data if more than 15 seconds have passed since the last update.
+        """
         current_time = now()
-
         # Avoid frequent updates
-        if self.updated_at is not None and (current_time - self.updated_at).total_seconds() < 15:
+        if self.updated_at is not None and (current_time - self.updated_at).total_seconds() <= RATING_UPDATING_THRESHOLD:
             return
-        # Fetch users with enough games and order by score
+
+        # Update data only if it has changed
+        new_data = self.create_rating_data()
+        if self.data != new_data:
+            with transaction.atomic():
+                self.data = new_data
+                self.updated_at = current_time
+                self.save()
+
+        logger.info('Rating data was updated')
+
+    @staticmethod
+    def create_rating_data() -> list:
         users = TelegramUser.objects.filter(games__gte=5).order_by('-total_score')
         rating_data = [
             {
@@ -301,13 +339,8 @@ class Rating(models.Model):
             }
             for user in users
         ]
-        # Update data only if it has changed
-        if self.data != rating_data:
-            with transaction.atomic():
-                self.data = rating_data
-                self.updated_at = current_time
-                self.save()
-        logger.info('Rating data was updated')
+        return rating_data
+
 
 class Feedback(models.Model):
     """
@@ -332,7 +365,7 @@ class Feedback(models.Model):
     sent_at = models.DateTimeField(null=True, blank=True)
     answered = models.BooleanField(default=False)
 
-    feedback_text = models.TextField(blank=True, null=True)
+    feedback_text = models.TextField()
     answer = models.TextField(blank=True, null=True)
 
     class Meta:

@@ -30,15 +30,20 @@ class GetRatingAPIView(AuthenticatedMixin, APIView):
     def get(self, request):
         user = self.get_user(request)
         rating = Rating.objects.first()
+
         if not rating:
+            # Creating an empty rating object if it doesn't exist
             try:
                 logger.info(f'Rating data was created by user {user}')
                 rating = Rating.objects.create(data=[])
+                rating.data = rating.create_rating_data()
+                rating.save()
             except Exception as e:
                 logger.error(f'Error in rating data creation by user {user}: {e}')
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            # Updating existing rating data
             rating.update_rating()
             logger.info(f'Rating data was updated successfully by user {user}')
 
@@ -96,6 +101,7 @@ class SubmitGuessAPIView(AuthenticatedMixin, APIView):
 
         logger.warning(f'Error in guess submission by user {request.user}: {serializer.errors}')
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class SendFeedbackAPIView(AuthenticatedMixin, APIView):
     def post(self, request):

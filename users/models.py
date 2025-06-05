@@ -31,7 +31,7 @@ class TelegramUser(AbstractUser):
     total_moves = models.PositiveIntegerField(default=0)
     total_time = models.PositiveIntegerField(default=0)
     total_errors = models.PositiveIntegerField(default=0)
-    total_score = models.PositiveIntegerField(default=0)
+    total_score = models.FloatField(default=0.0)
 
     USERNAME_FIELD = 'telegram_id'
 

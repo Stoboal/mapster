@@ -54,7 +54,7 @@ def telegram_auth(request):
     the authenticated session. Returns a JSON response including the generated
     token and user details.
 
-    Raises appropriate HTTP status codes (400, 403, or 500) for errors such as:
+    Raises appropriate HTTP status codes (400, 403, or 500) for errors such as
     - Missing or invalid "initData".
     - JSON decoding errors.
     - Unexpected server errors.

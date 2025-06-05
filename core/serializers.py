@@ -15,7 +15,7 @@ class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = [
-            'id', 'lat', 'lng', 'created_at', 'street_view_url', 'total_guesses', 'total_errors', 'total_time',
+            'id', 'lat', 'lng', 'complexity', 'country', 'created_at', 'street_view_url', 'total_guesses', 'total_errors', 'total_time',
             'avg_error', 'avg_time', 'total_moves', 'avg_moves'
         ]
         read_only_fields = ['id', 'created_at', 'total_guesses', 'total_errors', 'total_time', 'avg_time', 'avg_error']
