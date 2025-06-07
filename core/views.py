@@ -129,7 +129,7 @@ class SubmitGuessAPIView(AuthenticatedMixin, APIView):
     )
     def post(self, request):
         # Ensure the user is authenticated before processing the request
-        self.get_user(request)
+        user = self.get_user(request)
         data = request.data.copy()
         data['user_id'] = request.user.id
         serializer = GameResultSerializer(data=data)
@@ -137,16 +137,19 @@ class SubmitGuessAPIView(AuthenticatedMixin, APIView):
         if serializer.is_valid():
             guess = serializer.save()
             logger.info(f'Guess {guess} was submitted by user {guess.user}')
-            return Response(
-                {
-                    "message": "Guess submitted successfully",
-                    "distance_error": f"{guess.distance_error} kilometers",
-                    "duration": f"{guess.duration} seconds",
-                    "score": guess.score,
-                    "moves used": f"{guess.moves_used} moves",
-                },
-                status=status.HTTP_201_CREATED
-            )
+
+            user.refresh_from_db()
+            user_serializer = TelegramUserSerializer(user)
+            response_data = {
+                "message": "Guess submitted successfully",
+                "distance_error": f"{guess.distance_error} kilometers",
+                "duration": f"{guess.duration} seconds",
+                "score": guess.score,
+                "moves used": f"{guess.moves_used} moves",
+                "updated_user_stats": user_serializer.data
+            }
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
 
         logger.warning(f'Error in guess submission by user {request.user}: {serializer.errors}')
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
