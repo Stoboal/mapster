@@ -6,15 +6,15 @@ The project is designed not just as a game, but as a platform with business-orie
 
 The game backend is built with **Django** and **Django Rest Framework**, serving by a lightweight **React** client. 
 
-<img src="https://freeimage.host/i/snimok-ekrana-2025-06-09-115103.FFkQdtn" width="1024">
+<img src="https://iili.io/FFkQdtn.png" width="1024">
 
-<img src="https://freeimage.host/i/snimok-ekrana-2025-06-09-115119.FFkQJwX" width="1024">
+<img src="https://iili.io/FFkQJwX.png" width="1024">
 
-<img src="https://freeimage.host/i/snimok-ekrana-2025-06-09-115132.FFkQHut" width="1024">
+<img src="https://iili.io/FFkQHut.png" width="1024">
 
-<img src="https://freeimage.host/i/snimok-ekrana-2025-06-09-115138.FFkQ99I" width="1024">
+<img src="https://iili.io/FFkQ99I.png" width="1024">
 
-<img src="https://freeimage.host/i/snimok-ekrana-2025-06-09-115142.FFkQ3ns" width="1024">
+<img src="https://iili.io/FFkQ3ns.png" width="1024">
 
 ## Core Product Features
 
